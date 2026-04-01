@@ -18,7 +18,7 @@ export const useGestureLogic = () => {
   
   const consecutiveFrames = useRef<number>(0);
   const lastLabel = useRef<GestureLabel>(-1);
-  const STABILIZATION_FRAMES = 15;
+  const STABILIZATION_FRAMES = 8;
 
   const calculate = (prev: string | null, curr: string, op: string | null) => {
     if (!prev || !curr || !op) return null;

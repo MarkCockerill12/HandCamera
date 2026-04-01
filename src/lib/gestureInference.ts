@@ -62,17 +62,18 @@ class GestureInference {
       if (!landmarks || landmarks.length === 0) continue;
 
       const wrist = landmarks[0];
-      const indexBase = landmarks[5];
-      const scaleFactor = Math.hypot(indexBase.x - wrist.x, indexBase.y - wrist.y, indexBase.z - wrist.z) || 1;
-      
+      const mcp = landmarks[9]; // Middle finger MCP (base)
+      // Calculate hand scale (distance from wrist to middle finger base)
+      const scale = Math.hypot(mcp.x - wrist.x, mcp.y - wrist.y, mcp.z - wrist.z) || 1;
       const offset = handIdx * 63;
+
       for (let i = 0; i < landmarks.length; i++) {
-        inputData[offset + i * 3] = (landmarks[i].x - wrist.x) / scaleFactor;
-        inputData[offset + i * 3 + 1] = (landmarks[i].y - wrist.y) / scaleFactor;
-        inputData[offset + i * 3 + 2] = (landmarks[i].z - wrist.z) / scaleFactor;
+        // Translation + Scale Normalization
+        inputData[offset + i * 3] = (landmarks[i].x - wrist.x) / scale;
+        inputData[offset + i * 3 + 1] = (landmarks[i].y - wrist.y) / scale;
+        inputData[offset + i * 3 + 2] = (landmarks[i].z - wrist.z) / scale;
       }
     }
-
     return inputData;
   }
 

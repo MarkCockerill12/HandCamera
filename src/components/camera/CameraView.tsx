@@ -35,6 +35,77 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
 
 
 
+  const drawResults = (results: Results) => {
+    const canvas = canvasRef.current;
+    const canvasCtx = canvas?.getContext("2d");
+    if (!canvas || !canvasCtx) return;
+
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const mpGlobals = (globalThis as unknown as MediaPipeGlobals);
+    if (!results.multiHandLandmarks || !mpGlobals.drawConnectors) {
+      canvasCtx.restore();
+      return;
+    }
+
+    const COLORS = { active: "#00ffcc", inactive: "#00f2ff44" };
+
+    results.multiHandLandmarks.forEach((landmarks) => {
+      const wrist = landmarks[0];
+      
+      // Extension Status Logic
+      const fingerTips = [8, 12, 16, 20];
+      const fingerPIPs = [6, 10, 14, 18];
+      const fingerExtensions = fingerTips.map((tipIdx, i) => {
+        const dTip = Math.hypot(landmarks[tipIdx].x - wrist.x, landmarks[tipIdx].y - wrist.y);
+        const dPip = Math.hypot(landmarks[fingerPIPs[i]].x - wrist.x, landmarks[fingerPIPs[i]].y - wrist.y);
+        return dTip > dPip;
+      });
+
+      const thumbTip = landmarks[4];
+      const indexBase = landmarks[5];
+      const dThumb = Math.hypot(thumbTip.x - indexBase.x, thumbTip.y - indexBase.y);
+      const wristScale = Math.hypot(wrist.x - indexBase.x, wrist.y - indexBase.y);
+      const thumbExtended = dThumb > wristScale * 0.8;
+      
+      const extensions = [thumbExtended, ...fingerExtensions];
+
+      // Draw Palm
+      const palmConnections = [[5, 9], [9, 13], [13, 17], [0, 5], [0, 17]] as unknown as LandmarkConnectionArray;
+      mpGlobals.drawConnectors(canvasCtx, landmarks, palmConnections, {
+        color: COLORS.inactive,
+        lineWidth: 2,
+      });
+
+      // Draw Fingers
+      const fingerConnections = [
+        [[0, 1], [1, 2], [2, 3], [3, 4]], // Thumb
+        [[0, 5], [5, 6], [6, 7], [7, 8]], // Index
+        [[0, 9], [9, 10], [10, 11], [11, 12]], // Middle
+        [[0, 13], [13, 14], [14, 15], [15, 16]], // Ring
+        [[0, 17], [17, 18], [18, 19], [19, 20]]  // Pinky
+      ] as unknown as LandmarkConnectionArray[];
+
+      fingerConnections.forEach((conn, i) => {
+        mpGlobals.drawConnectors(canvasCtx, landmarks, conn, {
+          color: extensions[i] ? COLORS.active : COLORS.inactive,
+          lineWidth: extensions[i] ? 4 : 2,
+        });
+      });
+
+      if (mpGlobals.drawLandmarks) {
+        mpGlobals.drawLandmarks(canvasCtx, landmarks, {
+          color: COLORS.active,
+          lineWidth: 1,
+          radius: (data: { index: number }) => [4, 8, 12, 16, 20].includes(data.index) ? 4 : 2
+        });
+      }
+    });
+    
+    canvasCtx.restore();
+  };
+
   useEffect(() => {
     let hands: Hands | null = null;
     let rafId: number;
@@ -89,36 +160,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
       }
     };
 
-    const drawResults = (results: Results) => {
-      if (!canvasRef.current) return;
-      const canvasCtx = canvasRef.current.getContext("2d");
-      if (!canvasCtx) return;
-
-      canvasCtx.save();
-      canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      
-      if (results.multiHandLandmarks) {
-        for (const landmarks of results.multiHandLandmarks) {
-          // Use window cast for drawing_utils which are loaded via script tags
-          const mpGlobals = (globalThis as unknown as MediaPipeGlobals);
-          if (mpGlobals.drawConnectors && mpGlobals.HAND_CONNECTIONS) {
-            mpGlobals.drawConnectors(canvasCtx, landmarks, mpGlobals.HAND_CONNECTIONS, {
-              color: "#00f2ff",
-              lineWidth: 2,
-            });
-          }
-          if (mpGlobals.drawLandmarks) {
-            mpGlobals.drawLandmarks(canvasCtx, landmarks, {
-              color: "#00f2ff",
-              lineWidth: 1,
-              radius: 2,
-            });
-          }
-        }
-      }
-      canvasCtx.restore();
-    };
-
     initMediaPipe();
 
     return () => {
@@ -132,7 +173,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
   }, [onLandmarksUpdate]);
 
   return (
-    <div className="relative w-full aspect-video rounded-3xl overflow-hidden neon-border-cyan bg-[#05070a] shadow-2xl group">
+    <div className="relative w-full aspect-video rounded-3xl overflow-hidden neon-border-cyan bg-black shadow-2xl group">
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#05070a] z-30">
           <div className="w-16 h-16 border-2 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-4" />
@@ -142,7 +183,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
       
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover scale-x-[-1] opacity-60"
+        className="absolute inset-0 w-full h-full object-cover scale-x-[-1] opacity-100"
         playsInline
         muted
       />
