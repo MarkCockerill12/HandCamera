@@ -32,14 +32,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loading, setLoading] = useState(true);
 
-  const waitForGlobal = async <T,>(key: string, maxAttempts = 10): Promise<T | null> => {
-    for (let i = 0; i < maxAttempts; i++) {
-      const globalValue = (globalThis as unknown as Record<string, T>)[key];
-      if (globalValue) return globalValue;
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-    return null;
-  };
+
 
 
   useEffect(() => {
@@ -47,17 +40,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
     let rafId: number;
 
     const initMediaPipe = async () => {
-      console.log("[v3.0 MediaPipe] Initializing Hands solution...");
+      console.log("[v3.5 MediaPipe] Initializing Hands solution via dynamic import...");
       try {
-        // Wait for @mediapipe/hands to leak to global scope
-        const HandsClass = await waitForGlobal<MediaPipeGlobals["Hands"]>("Hands");
+        // Direct import instead of global polling
+        const { Hands } = await import("@mediapipe/hands");
 
-        
-        if (!HandsClass) {
-          throw new Error("MediaPipe Hands class not found on window after polling.");
-        }
-
-        const h = new HandsClass({
+        const h = new Hands({
           locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
         });
 
@@ -111,16 +99,21 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
       
       if (results.multiHandLandmarks) {
         for (const landmarks of results.multiHandLandmarks) {
+          // Use window cast for drawing_utils which are loaded via script tags
           const mpGlobals = (globalThis as unknown as MediaPipeGlobals);
-          mpGlobals.drawConnectors(canvasCtx, landmarks, (globalThis as unknown as MediaPipeGlobals).HAND_CONNECTIONS, {
-            color: "#00f2ff",
-            lineWidth: 2,
-          });
-          mpGlobals.drawLandmarks(canvasCtx, landmarks, {
-            color: "#00f2ff",
-            lineWidth: 1,
-            radius: 2,
-          });
+          if (mpGlobals.drawConnectors && mpGlobals.HAND_CONNECTIONS) {
+            mpGlobals.drawConnectors(canvasCtx, landmarks, mpGlobals.HAND_CONNECTIONS, {
+              color: "#00f2ff",
+              lineWidth: 2,
+            });
+          }
+          if (mpGlobals.drawLandmarks) {
+            mpGlobals.drawLandmarks(canvasCtx, landmarks, {
+              color: "#00f2ff",
+              lineWidth: 1,
+              radius: 2,
+            });
+          }
         }
       }
       canvasCtx.restore();

@@ -46,19 +46,22 @@ If you are hosting your model on Hugging Face, you can use the provided script t
    ```
 
 ### 1. Training the Model
-Your model should accept an input tensor of shape `[1, 63]` (21 landmarks * 3 coordinates [x, y, z]) and output probabilities for the labels listed below.
+Your model should accept an input tensor of shape `[1, 126]` (21 landmarks * 3 coordinates [x, y, z] * 2 hands) and output probabilities for the labels listed below.
 
 ### 2. The Gesture Map
 The application maps the following model outputs to specific actions:
 
 | Label | Action | Gesture |
 |-------|--------|---------|
-| 0-5   | Digit  | Hold 0-5 fingers |
-| 6     | Plus   | Defined in model |
-| 7     | Minus  | Defined in model |
-| 8     | Equals | Thumbs Up |
-| 9     | BKSP   | Thumbs Down |
-| 10    | Easter | Middle Finger (Sad Face) |
+| 0-10  | Digit      | Hold 0-10 fingers |
+| 11    | Plus (+)   | Model Defined |
+| 12    | Minus (-)  | Model Defined |
+| 13    | Multiply (*)| Model Defined (Index Cross) |
+| 14    | Divide (/) | Model Defined (Tilted Palm) |
+| 15    | Equals (=) | Thumbs Up |
+| 16    | BKSP       | Thumbs Down |
+| 17    | Error      | Middle Finger (Sad Face) |
+| 18    | Reset      | Palms Together (Prayer) |
 
 ### 3. Deploying the Model
 Simply replace or add your `.onnx` file at:

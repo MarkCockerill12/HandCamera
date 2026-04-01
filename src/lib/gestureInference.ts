@@ -62,12 +62,14 @@ class GestureInference {
       if (!landmarks || landmarks.length === 0) continue;
 
       const wrist = landmarks[0];
+      const indexBase = landmarks[5];
+      const scaleFactor = Math.hypot(indexBase.x - wrist.x, indexBase.y - wrist.y, indexBase.z - wrist.z) || 1;
+      
       const offset = handIdx * 63;
-
       for (let i = 0; i < landmarks.length; i++) {
-        inputData[offset + i * 3] = landmarks[i].x - wrist.x;
-        inputData[offset + i * 3 + 1] = landmarks[i].y - wrist.y;
-        inputData[offset + i * 3 + 2] = landmarks[i].z - wrist.z;
+        inputData[offset + i * 3] = (landmarks[i].x - wrist.x) / scaleFactor;
+        inputData[offset + i * 3 + 1] = (landmarks[i].y - wrist.y) / scaleFactor;
+        inputData[offset + i * 3 + 2] = (landmarks[i].z - wrist.z) / scaleFactor;
       }
     }
 
@@ -114,12 +116,15 @@ class GestureInference {
     // 1. Identify "Prayer Protocol" (Palms Clasped)
     if (multiHandLandmarks.length === 2) {
       const h1Wrist = multiHandLandmarks[0][0];
+      const h1IndexBase = multiHandLandmarks[0][5];
       const h2Wrist = multiHandLandmarks[1][0];
-      const distance = Math.hypot(h1Wrist.x - h2Wrist.x, h1Wrist.y - h2Wrist.y);
       
-      // If wrists are very close together (clasping hands), trigger Prayer Protocol
-      if (distance < 0.1) {
-        return 18; // New index for Prayer
+      const h1Scale = Math.hypot(h1IndexBase.x - h1Wrist.x, h1IndexBase.y - h1Wrist.y);
+      const wristDist = Math.hypot(h1Wrist.x - h2Wrist.x, h1Wrist.y - h2Wrist.y);
+      
+      // If wrists are within 1.2 "hand sizes" of each other
+      if (wristDist < h1Scale * 1.2) {
+        return 18; // Prayer
       }
     }
 
@@ -134,9 +139,12 @@ class GestureInference {
       let fingersExtended = 0;
       const fingerTips = [8, 12, 16, 20];
       const fingerPIPs = [6, 10, 14, 18];
+      const wrist = landmarks[0];
       
       const extendedStatus = fingerTips.map((tipIdx, i) => {
-        const isExt = landmarks[tipIdx].y < landmarks[fingerPIPs[i]].y;
+        const dTip = Math.hypot(landmarks[tipIdx].x - wrist.x, landmarks[tipIdx].y - wrist.y);
+        const dPip = Math.hypot(landmarks[fingerPIPs[i]].x - wrist.x, landmarks[fingerPIPs[i]].y - wrist.y);
+        const isExt = dTip > dPip;
         if (isExt) fingersExtended++;
         return isExt;
       });
@@ -144,7 +152,6 @@ class GestureInference {
       // Thumb logic
       const thumbTip = landmarks[4];
       const indexBase = landmarks[5];
-      const wrist = landmarks[0];
       const dThumb = Math.hypot(thumbTip.x - indexBase.x, thumbTip.y - indexBase.y);
       const wristScale = Math.hypot(wrist.x - indexBase.x, wrist.y - indexBase.y);
       const thumbExtended = dThumb > wristScale * 0.8;

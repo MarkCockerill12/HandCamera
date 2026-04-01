@@ -29,18 +29,34 @@ export const useGestureLogic = () => {
       case "+": return a + b;
       case "-": return a - b;
       case "*": return a * b;
-      case "/": return b !== 0 ? a / b : null;
+      case "/": return b === 0 ? null : a / b;
       default: return null;
     }
   };
 
   const performOperation = useCallback((op: "+" | "-" | "*" | "/") => {
     if (currentInput) {
+      if (previousValue && operation) {
+        // Chain calculation: 5 + 5 + -> 10 +
+        const res = calculate(previousValue, currentInput, operation);
+        if (res !== null) {
+          setPreviousValue(res.toString());
+          setOperation(op);
+          setCurrentInput("");
+          // setResult(res); // REMOVED: Don't show intermediate result
+          return;
+        }
+      }
       setPreviousValue(currentInput);
       setOperation(op);
       setCurrentInput("");
+    } else if (result !== null && operation === null) {
+      // Allow chaining after a previous result: (5 + 5 = 10) + 5 -> 15
+      setPreviousValue(result.toString());
+      setOperation(op);
+      setResult(null); // Clear result so it doesn't stay on screen during chaining
     }
-  }, [currentInput]);
+  }, [currentInput, previousValue, operation, result]);
 
   const performCalculation = useCallback(() => {
     if (previousValue && currentInput && operation) {
@@ -68,7 +84,7 @@ export const useGestureLogic = () => {
   }, []);
 
   const handleGestureCommit = useCallback((label: GestureLabel) => {
-    if (isSad && label !== 16) return; // Only allow Prayer Protocol (16) to reset
+    if (isSad && label !== 18) return; // Only allow Prayer Protocol (18) to reset
 
     switch (true) {
       case (label >= 0 && label <= 10):
