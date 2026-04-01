@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gesture-Based Visual Calculator
 
-## Getting Started
+A high-performance, real-time Gesture-Based Visual Calculator powered by MediaPipe and ONNX Runtime Web. This application performs hand-tracking and gesture classification entirely client-side.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Real-time Hand Tracking**: Uses MediaPipe Hands to extract 21 (x, y, z) landmarks.
+- **On-device Inference**: Gesture classification performed in the browser using ONNX Runtime Web.
+- **Glassmorphism UI**: Beautiful, animated calculator display with Framer Motion.
+- **Gesture State Machine**: Specialized stabilization logic (15+ frames) to prevent accidental inputs.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **Package Manager**: Bun
+- **AI/CV**: `@mediapipe/hands`, `onnxruntime-web`
+- **Styling**: Tailwind CSS + shadcn/ui
+- **Animation**: Framer Motion
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Installation & Setup
 
-## Learn More
+1. **Install dependencies**:
+   ```bash
+   bun install
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+2. **Run development server**:
+   ```bash
+   bun dev
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Build for production**:
+   ```bash
+   bun run build
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project is configured to load a gesture classification model from `/public/model/gesture_model.onnx`.
 
-## Deploy on Vercel
+### 0. Download from Hugging Face
+If you are hosting your model on Hugging Face, you can use the provided script to download it:
+1. Open `scripts/fetch_model.ps1` and update the `$HF_MODEL_URL` with your Hugging Face model URL.
+2. Run the following command:
+   ```bash
+   bun run model:fetch
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 1. Training the Model
+Your model should accept an input tensor of shape `[1, 63]` (21 landmarks * 3 coordinates [x, y, z]) and output probabilities for the labels listed below.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 2. The Gesture Map
+The application maps the following model outputs to specific actions:
+
+| Label | Action | Gesture |
+|-------|--------|---------|
+| 0-5   | Digit  | Hold 0-5 fingers |
+| 6     | Plus   | Defined in model |
+| 7     | Minus  | Defined in model |
+| 8     | Equals | Thumbs Up |
+| 9     | BKSP   | Thumbs Down |
+| 10    | Easter | Middle Finger (Sad Face) |
+
+### 3. Deploying the Model
+Simply replace or add your `.onnx` file at:
+`public/model/gesture_model.onnx`
+
+The `GestureInference` class in `src/lib/gestureInference.ts` will automatically attempt to load this file on initialization.
+
+## The "Debounce" Logic
+
+To prevent accidental "flickering" inputs (e.g., typing "333333" instantly), we use a **Confidence Counter**:
+- A gesture is only registered if the model predicts the same label for **15 consecutive frames**.
+- This stabilization ensures that the user's intent is clear before the calculator state is updated.
+- Real-time feedback is provided via a progress bar in the UI.
+
+## Performance Optimization
+
+- **requestAnimationFrame**: The processing loop is decoupled from React renders to ensure 30+ FPS.
+- **Canvas Rendering**: Landmarks and skeletons are drawn directly to a Canvas overlay for maximum efficiency.
+- **Client-Side Only**: No data is sent to any server; all AI processing happens locally in your browser.
