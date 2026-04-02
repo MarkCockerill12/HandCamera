@@ -41,9 +41,9 @@ class GestureInference {
   public verboseDebug: boolean = false; // [v4.2] Toggle for deep tracing
 
   constructor() {
-    // WASM paths for ONNX Runtime Web
+    // WASM paths for ONNX Runtime Web - Locked to v1.24.3 to match package.json ABI
     try {
-      ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/";
+      ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.24.3/dist/";
     } catch (e) {
       console.warn("ONNX WASM paths already set or error setting them:", e);
     }
@@ -102,18 +102,74 @@ class GestureInference {
     return inputData;
   }
 
+  /**
+   * [v6.0 Hybrid Engine]
+   * Detects structural UI gestures using 3D geometry heuristics.
+   * This bypasses the neural network for gestures like Prayer, Thumbs Up/Down, and Sad Face.
+   */
+  private detectHeuristicGestures(multiHandLandmarks: Landmark[][]): GestureLabel | null {
+    if (multiHandLandmarks.length === 0) return null;
+
+    // 1. Check for Prayer (Reset) - 2 hands, wrists touching
+    if (multiHandLandmarks.length === 2) {
+      const dist = Math.hypot(
+        multiHandLandmarks[0][0].x - multiHandLandmarks[1][0].x,
+        multiHandLandmarks[0][0].y - multiHandLandmarks[1][0].y
+      );
+      if (dist < 0.15) return 18; // Prayer
+    }
+
+    // 2. Check Hand 1 for structural gestures
+    const lms = multiHandLandmarks[0];
+    const wrist = lms[0];
+    
+    // Helper to check if a finger is folded using 3D distance to wrist
+    const isFolded = (tip: number, mcp: number) => {
+      const dTip = Math.hypot(lms[tip].x - wrist.x, lms[tip].y - wrist.y, lms[tip].z - wrist.z);
+      const dMcp = Math.hypot(lms[mcp].x - wrist.x, lms[mcp].y - wrist.y, lms[mcp].z - wrist.z);
+      return dTip < dMcp; // Tip is closer to wrist than the knuckle is
+    };
+
+    const indexFolded = isFolded(8, 5);
+    const middleFolded = isFolded(12, 9);
+    const ringFolded = isFolded(16, 13);
+    const pinkyFolded = isFolded(20, 17);
+
+    const allFingersFolded = indexFolded && middleFolded && ringFolded && pinkyFolded;
+
+    // 3. THUMBS UP / DOWN LOGIC (Binary 3D Y-Comparison)
+    if (allFingersFolded) {
+      // Is the thumb tip significantly higher or lower than the thumb knuckle?
+      if (lms[4].y < lms[2].y - 0.05) return 15; // Thumbs Up (Equals)
+      if (lms[4].y > lms[2].y + 0.05) return 16; // Thumbs Down (Backspace)
+    }
+
+    // 4. MIDDLE FINGER LOGIC (Sad Face)
+    if (indexFolded && !middleFolded && ringFolded && pinkyFolded) {
+      return 17; // Middle finger extended alone
+    }
+
+    return null; // Not a UI gesture, let the Neural Network handle it
+  }
+
 
   async predict(multiHandLandmarks: Landmark[][], multiHandedness?: { label: string }[]): Promise<number> {
+    if (!multiHandLandmarks || multiHandLandmarks.length === 0) return -1;
+
+    // 1. Try exact mathematical heuristics first (Overrides the AI)
+    const heuristicLabel = this.detectHeuristicGestures(multiHandLandmarks);
+    if (heuristicLabel !== null) return heuristicLabel;
+
     if (!this.session) {
       return this.mockPredict(multiHandLandmarks);
     }
 
     try {
-      // 1. Prepare Features (126 landmarks)
+      // 2. Prepare Features (126 landmarks)
       const inputData = this.extractFeatures(multiHandLandmarks);
       const tensorInput = new ort.Tensor('float32', inputData, [1, 126]);
 
-      // 2. Run Inference
+      // 3. Run Inference
       const start = performance.now();
       const inputName = this.session.inputNames[0];
       const outputName = this.session.outputNames[0];

@@ -130,9 +130,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
 
         h.setOptions({
           maxNumHands: 2,
-          modelComplexity: 0, // [v4.0] Level 0 for maximum snappiness/speed
-          minDetectionConfidence: 0.55,
-          minTrackingConfidence: 0.55,
+          modelComplexity: 2 as any, // [v5.0] Upgraded to Level 2 for superior occlusion tracking
+          minDetectionConfidence: 0.6, // Slightly higher to ignore ghosts
+          minTrackingConfidence: 0.6,
         });
 
 
