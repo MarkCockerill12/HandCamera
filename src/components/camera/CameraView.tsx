@@ -125,12 +125,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
         const { Hands } = await import("@mediapipe/hands");
 
         const h = new Hands({
-          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`,
         });
 
         h.setOptions({
           maxNumHands: 2,
-          modelComplexity: 2 as any, // [v5.0] Upgraded to Level 2 for superior occlusion tracking
+          modelComplexity: 1, // [v6.0 Hotfix] Level 1 for maximum WASM stability
           minDetectionConfidence: 0.6, // Slightly higher to ignore ghosts
           minTrackingConfidence: 0.6,
         });
