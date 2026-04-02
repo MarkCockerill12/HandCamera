@@ -7,23 +7,6 @@ const nextConfig: NextConfig = {
     // Turbopack from jumping to the user home directory.
     root: process.cwd(),
   },
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
-          },
-        ],
-      },
-    ];
-  },
 };
 
 

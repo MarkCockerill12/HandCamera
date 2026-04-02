@@ -61,9 +61,6 @@ export const useGestureLogic = () => {
   const previousValueRef = useRef<string | null>(null);
   const operationRef = useRef<string | null>(null);
   const resultRef = useRef<number | null>(null);
-  
-  const isInferring = useRef(false); // [v6.0] Hardware lock to prevent promise flooding
-  const justCalculated = useRef(false); // [v6.0] Flag to start new number after equals
 
   // Sync state to refs for use in stable callbacks
   useEffect(() => { isSadRef.current = isSad; }, [isSad]);
@@ -72,55 +69,43 @@ export const useGestureLogic = () => {
   useEffect(() => { operationRef.current = operation; }, [operation]);
   useEffect(() => { resultRef.current = result; }, [result]);
 
-  const calculate = (prev: string | null, curr: string, op: string | null): number | "Error" | null => {
+  const calculate = (prev: string | null, curr: string, op: string | null) => {
     if (!prev || !curr || !op) return null;
     const a = Number.parseFloat(prev);
     const b = Number.parseFloat(curr);
     
-    if (Number.isNaN(a) || Number.isNaN(b)) return null;
-
-    let res: number;
     switch (op) {
-      case "+": res = a + b; break;
-      case "-": res = a - b; break;
-      case "*": res = a * b; break;
-      case "/": 
-        if (b === 0) return "Error";
-        res = a / b; 
-        break;
+      case "+": return a + b;
+      case "-": return a - b;
+      case "*": return a * b;
+      case "/": return b === 0 ? null : a / b;
       default: return null;
     }
-
-    // [v6.0] Precision Polish: Match standard binary float behavior but with clean UI
-    return Number.parseFloat(res.toFixed(6));
   };
 
   const performOperation = useCallback((op: "+" | "-" | "*" | "/") => {
     const cur = currentInputRef.current;
     const prev = previousValueRef.current;
     const oper = operationRef.current;
-    
-    // [v6.0] Operation Chaining Logic
-    if (cur && prev && oper) {
-      // 1. Evaluate pending chain (e.g. 5 + 5 -> 10)
-      const res = calculate(prev, cur, oper);
-      if (res !== null) {
-        setResult(res === "Error" ? null : res);
-        setPreviousValue(res.toString()); // Move result to memory
-        setOperation(op);                 // Set new operator
-        setCurrentInput("");              // Clear for next number
-        justCalculated.current = false;
-        return;
+    const resValue = resultRef.current;
+
+    if (cur) {
+      if (prev && oper) {
+        const res = calculate(prev, cur, oper);
+        if (res !== null) {
+          setPreviousValue(res.toString());
+          setOperation(op);
+          setCurrentInput("");
+          return;
+        }
       }
-    } else if (cur) {
-      // 2. Standard first-time operation
       setPreviousValue(cur);
       setOperation(op);
       setCurrentInput("");
-      justCalculated.current = false;
-    } else if (prev && !cur) {
-      // 3. User changed their mind about the operator
+    } else if (resValue !== null && oper === null) {
+      setPreviousValue(resValue.toString());
       setOperation(op);
+      setResult(null);
     }
   }, []); // Truly stable
 
@@ -132,11 +117,10 @@ export const useGestureLogic = () => {
     if (prev && cur && oper) {
       const res = calculate(prev, cur, oper);
       if (res !== null) {
-        setResult(res === "Error" ? null : res);
+        setResult(res);
         setCurrentInput(res.toString());
         setPreviousValue(null);
         setOperation(null);
-        justCalculated.current = true; // [v6.0] Lock for next digit
       }
     }
   }, []); // Truly stable
@@ -169,14 +153,7 @@ export const useGestureLogic = () => {
 
     switch (true) {
       case (label >= 0 && label <= 10):
-        setCurrentInput((prev) => {
-          // [v6.0] Post-Equals replacement or Leading Zero check
-          if (justCalculated.current || prev === "0") {
-            justCalculated.current = false;
-            return label.toString();
-          }
-          return prev + label.toString();
-        });
+        setCurrentInput((prev) => prev + label.toString());
         setResult(null);
         break;
       case (label === 11): // Plus
@@ -291,8 +268,6 @@ export const useGestureLogic = () => {
   }, [handleGestureCommit]); 
 
   const processLandmarks = useCallback(async (results: Results) => {
-    if (isInferring.current) return; // [v6.0] Frame drop to prevent promise flooding
-
     if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
       consecutiveFrames.current = 0;
       lastLabel.current = -1;
@@ -302,25 +277,19 @@ export const useGestureLogic = () => {
     }
 
     const multiLandmarks = results.multiHandLandmarks;
-    
-    isInferring.current = true;
-    try {
-      const label = await gestureInference.predict(multiLandmarks, results.multiHandedness);
+    const label = await gestureInference.predict(multiLandmarks, results.multiHandedness);
 
-      // [v4.0] INSTANT PRAYER BYPASS
-      // If the "Rude Gesture" screen is active, any detection of Prayer clears it immediately.
-      if (isSadRef.current && (label === 18)) {
-        console.log("[v4.0 HUD] Instant Prayer protocol engaged. Restoring systems...");
-        setIsSad(false);
-        consecutiveFrames.current = 0;
-        setGestureProgress(0);
-        return;
-      }
-
-      handleLabel(label as GestureLabel);
-    } finally {
-      isInferring.current = false;
+    // [v4.0] INSTANT PRAYER BYPASS
+    // If the "Rude Gesture" screen is active, any detection of Prayer clears it immediately.
+    if (isSadRef.current && (label === 18)) {
+      console.log("[v4.0 HUD] Instant Prayer protocol engaged. Restoring systems...");
+      setIsSad(false);
+      consecutiveFrames.current = 0;
+      setGestureProgress(0);
+      return;
     }
+
+    handleLabel(label as GestureLabel);
   }, [handleLabel]); 
 
 
