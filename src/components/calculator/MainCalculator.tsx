@@ -19,7 +19,16 @@ export const MainCalculator: React.FC = () => {
     displayValue,
     equation,
     isSad,
-    reset
+    reset,
+    
+    // [v4.2 Test Mode]
+    isTestMode,
+    testIndex,
+    isAwaitingFeedback,
+    lastDetectedDuringTest,
+    toggleTestMode,
+    submitTestFeedback,
+    GESTURES_TO_TEST
   } = useGestureLogic();
 
 
@@ -45,7 +54,13 @@ export const MainCalculator: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+          <button 
+            onClick={toggleTestMode}
+            className={`p-2 rounded-full glass-dark border transition-all ${isTestMode ? 'border-amber-500 text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]' : 'border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/10'}`}
+            title="Toggle Debug Test Mode"
+          >
+            <RefreshCcw className={`w-5 h-5 ${isTestMode ? 'animate-spin' : ''}`} />
+          </button>
           <button 
             onClick={() => setShowHowTo(!showHowTo)}
             className="p-2 rounded-full glass-dark border border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/10 transition-all"
@@ -59,7 +74,6 @@ export const MainCalculator: React.FC = () => {
             <RefreshCcw className="w-5 h-5" />
           </button>
         </div>
-      </div>
 
       {/* Main Integrated Dashboard */}
       <div className="relative flex flex-col rounded-[2.5rem] overflow-hidden glass-dark neon-border-cyan shadow-[0_0_50px_rgba(0,242,255,0.1)]">
@@ -148,6 +162,85 @@ export const MainCalculator: React.FC = () => {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isTestMode && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-6"
+          >
+            <div className="glass-dark border border-amber-500/30 rounded-3xl p-6 shadow-2xl backdrop-blur-xl">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <span className="text-[10px] text-amber-500/50 uppercase font-black tracking-widest block mb-1">
+                    Debug_Sequence_{testIndex + 1}/{GESTURES_TO_TEST.length}
+                  </span>
+                  <h3 className="text-2xl font-black text-white tracking-tight uppercase italic">
+                    {GESTURES_TO_TEST[testIndex].name}
+                  </h3>
+                </div>
+                <button 
+                  onClick={toggleTestMode}
+                  className="text-white/20 hover:text-white/60 transition-colors"
+                >
+                  EXIT TEST
+                </button>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl p-6 border border-white/5 mb-6 text-center italic text-white/60 text-sm">
+                &quot;Please perform the gesture above clearly in front of the camera.&quot;
+              </div>
+
+              {isAwaitingFeedback && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="space-y-6"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-[10px] text-cyan-500 font-bold uppercase tracking-widest">Inference Result</span>
+                    <div className="text-4xl font-black text-cyan-400 neon-glow-cyan uppercase italic">
+                      {GESTURES_TO_TEST.find((g: { label: number; name: string }) => g.label === lastDetectedDuringTest)?.name || 'Unknown'}
+                    </div>
+                    <span className="text-white/40 text-[10px]">Is this detection accurate?</span>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => submitTestFeedback(true)}
+                      className="flex-1 py-4 bg-cyan-500 text-black font-black uppercase tracking-tighter rounded-xl hover:bg-cyan-400 transition-all active:scale-95 shadow-[0_0_20px_rgba(0,255,204,0.3)]"
+                    >
+                      Correct [YES]
+                    </button>
+                    <button 
+                      onClick={() => submitTestFeedback(false)}
+                      className="flex-1 py-4 bg-red-500/20 border border-red-500/50 text-red-500 font-black uppercase tracking-tighter rounded-xl hover:bg-red-500/30 transition-all active:scale-95"
+                    >
+                      Incorrect [NO]
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {!isAwaitingFeedback && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex gap-4">
+                     {[1, 2, 3].map(i => (
+                       <motion.div 
+                        key={i}
+                        animate={{ scale: [1, 1.5, 1], opacity: [0.2, 1, 0.2] }}
+                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                        className="w-2 h-2 rounded-full bg-amber-500"
+                       />
+                     ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

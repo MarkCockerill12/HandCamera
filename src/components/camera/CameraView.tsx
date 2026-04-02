@@ -54,13 +54,16 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
     results.multiHandLandmarks.forEach((landmarks) => {
       const wrist = landmarks[0];
       
-      // Extension Status Logic
+      // Extension Status Logic (Optimized: only check relevant landmarks)
       const fingerTips = [8, 12, 16, 20];
       const fingerPIPs = [6, 10, 14, 18];
+      
       const fingerExtensions = fingerTips.map((tipIdx, i) => {
-        const dTip = Math.hypot(landmarks[tipIdx].x - wrist.x, landmarks[tipIdx].y - wrist.y);
-        const dPip = Math.hypot(landmarks[fingerPIPs[i]].x - wrist.x, landmarks[fingerPIPs[i]].y - wrist.y);
-        return dTip > dPip;
+        const tip = landmarks[tipIdx];
+        const pip = landmarks[fingerPIPs[i]];
+        const dTip = Math.hypot(tip.x - wrist.x, tip.y - wrist.y);
+        const dPip = Math.hypot(pip.x - wrist.x, pip.y - wrist.y);
+        return dTip > (dPip * 1.1); // Add slight threshold for visual stability
       });
 
       const thumbTip = landmarks[4];
@@ -106,9 +109,14 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
     canvasCtx.restore();
   };
 
+  const handsRef = useRef<Hands | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const isInitializing = useRef(false);
+
   useEffect(() => {
-    let hands: Hands | null = null;
-    let rafId: number;
+    if (isInitializing.current || handsRef.current) return;
+    isInitializing.current = true;
 
     const initMediaPipe = async () => {
       console.log("[v3.5 MediaPipe] Initializing Hands solution via dynamic import...");
@@ -122,9 +130,9 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
 
         h.setOptions({
           maxNumHands: 2,
-          modelComplexity: 1,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5,
+          modelComplexity: 0, // [v4.0] Level 0 for maximum snappiness/speed
+          minDetectionConfidence: 0.55,
+          minTrackingConfidence: 0.55,
         });
 
 
@@ -133,21 +141,22 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
           drawResults(results);
         });
 
-        hands = h;
+        handsRef.current = h;
 
 
         if (videoRef.current) {
           const stream = await navigator.mediaDevices.getUserMedia({
             video: { width: 640, height: 480 },
           });
+          streamRef.current = stream;
           videoRef.current.srcObject = stream;
           videoRef.current.play();
 
           const processVideo = async () => {
-            if (videoRef.current && hands) {
-              await hands.send({ image: videoRef.current });
+            if (videoRef.current && handsRef.current) {
+              await handsRef.current.send({ image: videoRef.current });
             }
-            rafId = requestAnimationFrame(processVideo);
+            rafRef.current = requestAnimationFrame(processVideo);
           };
           
           processVideo();
@@ -163,11 +172,19 @@ export const CameraView: React.FC<CameraViewProps> = ({ onLandmarksUpdate }) => 
     initMediaPipe();
 
     return () => {
-      if (hands) {
-        hands.close();
+      console.log("[v3.5 MediaPipe] Cleaning up camera resources...");
+      isInitializing.current = false;
+      if (handsRef.current) {
+        handsRef.current.close();
+        handsRef.current = null;
       }
-      if (rafId) {
-        cancelAnimationFrame(rafId);
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     };
   }, [onLandmarksUpdate]);
