@@ -14,15 +14,16 @@ export const HowToUse: React.FC<HowToUseProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const gestures = [
-    { label: "0 — 10 digits", gesture: "Fingers Count", color: "text-cyan-400" },
-    { label: "Plus / Minus", gesture: "Math Ops (11/12)", color: "text-blue-400" },
-    { label: "Equals", gesture: "Execute (13)", color: "text-cyan-400" },
-    { label: "Backspace", gesture: "Delete (14)", color: "text-orange-400" },
-    { label: "Prayer Protocol", gesture: "Clasp Hands (16)", color: "text-blue-400" },
-    { label: "Clear/Reset", gesture: "Manual Reset", color: "text-pink-400" },
+    { label: "0 — 5", gesture: "Count on one hand", color: "text-cyan-400" },
+    { label: "6 — 10", gesture: "Count on both hands", color: "text-cyan-400" },
+    { label: "Plus  +", gesture: "Index fingers touching: one flat, one upright", color: "text-blue-400" },
+    { label: "Multiply  ×", gesture: "Index fingers crossed as an X", color: "text-blue-400" },
+    { label: "Minus  −", gesture: "Flat hand, sideways", color: "text-blue-400" },
+    { label: "Divide  ÷", gesture: "Flat hand, tilted", color: "text-blue-400" },
+    { label: "Equals  =", gesture: "Thumbs up", color: "text-cyan-400" },
+    { label: "Backspace", gesture: "Thumbs down (undoes an operator too)", color: "text-orange-400" },
+    { label: "Clear", gesture: "Press palms together", color: "text-pink-400" },
   ];
-
-
 
 
   return (
@@ -59,7 +60,11 @@ export const HowToUse: React.FC<HowToUseProps> = ({ isOpen, onClose }) => {
 
       <div className="mt-6 pt-4 border-t border-cyan-500/20">
         <p className="text-[9px] text-cyan-500/40 uppercase leading-relaxed font-medium">
-          Hold gesture for 15 frames to lock-in the command. Ensure hand is clearly visible.
+          Hold a gesture until the bar fills to lock it in. For minus and divide, keep
+          your fingers pressed together — a splayed hand reads as a digit. Keep your
+          wrist in view and your hand not too close, or it may not be detected at all.
+          To repeat a gesture, drop your hand out of frame between entries. Equals needs a
+          full sum (e.g. 5 + 3). For 0-10, tuck your thumb in or stick it clearly out.
         </p>
       </div>
     </motion.div>

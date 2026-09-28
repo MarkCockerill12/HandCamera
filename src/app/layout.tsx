@@ -31,11 +31,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <Script 
-          src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" 
+          src="/mediapipe/hands/hands.js" 
           strategy="beforeInteractive"
         />
         <Script 
-          src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" 
+          src="/mediapipe/drawing_utils/drawing_utils.js" 
           strategy="beforeInteractive"
         />
       </body>

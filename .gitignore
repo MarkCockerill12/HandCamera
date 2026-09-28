@@ -53,3 +53,9 @@ __pycache__/
 
 # Logs
 *.log
+
+# copied from node_modules by scripts/copy-mediapipe.mjs
+/public/mediapipe/
+
+# local fake-camera debug harness
+/scripts/e2e/

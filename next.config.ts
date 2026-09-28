@@ -7,25 +7,8 @@ const nextConfig: NextConfig = {
     // Turbopack from jumping to the user home directory.
     root: process.cwd(),
   },
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
-          },
-        ],
-      },
-    ];
-  },
+  // Note: no COEP/COOP headers. They were only needed for onnxruntime-web's
+  // threaded WASM backend, and `require-corp` blocks MediaPipe's CDN assets.
 };
-
-
 
 export default nextConfig;
